@@ -92,13 +92,14 @@
             { id: "me", name: "我", icon: "🙋" },
         ];
 
+        // 新增 hex 色碼，供圓餅圖與各分類顏色一致
         const THEMES = [
-            { bgColor: "bg-gradient-to-br from-orange-50 to-amber-100/60",  borderColor: "border-orange-100",  btnColor: "bg-orange-400" },
-            { bgColor: "bg-gradient-to-br from-cyan-50 to-blue-100/60",     borderColor: "border-cyan-100",    btnColor: "bg-cyan-500" },
-            { bgColor: "bg-gradient-to-br from-purple-50 to-indigo-100/60", borderColor: "border-purple-100",  btnColor: "bg-indigo-400" },
-            { bgColor: "bg-gradient-to-br from-rose-50 to-pink-100/60",     borderColor: "border-rose-100",    btnColor: "bg-pink-400" },
-            { bgColor: "bg-gradient-to-br from-emerald-50 to-green-100/60", borderColor: "border-emerald-100", btnColor: "bg-emerald-500" },
-            { bgColor: "bg-gradient-to-br from-yellow-50 to-lime-100/60",   borderColor: "border-yellow-100",  btnColor: "bg-yellow-500" },
+            { bgColor: "bg-gradient-to-br from-orange-50 to-amber-100/60",  borderColor: "border-orange-100",  btnColor: "bg-orange-400",  hex: "#fb923c" },
+            { bgColor: "bg-gradient-to-br from-cyan-50 to-blue-100/60",     borderColor: "border-cyan-100",    btnColor: "bg-cyan-500",    hex: "#06b6d4" },
+            { bgColor: "bg-gradient-to-br from-purple-50 to-indigo-100/60", borderColor: "border-purple-100",  btnColor: "bg-indigo-400",  hex: "#818cf8" },
+            { bgColor: "bg-gradient-to-br from-rose-50 to-pink-100/60",     borderColor: "border-rose-100",    btnColor: "bg-pink-400",    hex: "#f472b6" },
+            { bgColor: "bg-gradient-to-br from-emerald-50 to-green-100/60", borderColor: "border-emerald-100", btnColor: "bg-emerald-500", hex: "#10b981" },
+            { bgColor: "bg-gradient-to-br from-yellow-50 to-lime-100/60",   borderColor: "border-yellow-100",  btnColor: "bg-yellow-500",  hex: "#eab308" },
         ];
 
         // =====================================================================
@@ -139,7 +140,6 @@
             return JSON.parse(JSON.stringify(val));
         }
 
-        // 支援 Firebase 即時同步的 state Hook（含防抖，打字不卡頓）
         function useCloudState(key, defaultValue) {
             const [value, setValue] = useState(() => {
                 const fallback = typeof defaultValue === 'function' ? defaultValue() : defaultValue;
@@ -200,11 +200,12 @@
             return DEFAULT_SECTIONS.map(s => ({ ...s, items: [] }));
         }
 
-        function makeTrip({ id, title, note, settings, sections }) {
+        function makeTrip({ id, title, note, settings, sections, locked }) {
             return {
                 id: id || newId("trip"),
                 title: title ?? "✨ 新的旅程記帳 ✈️",
                 note: note ?? "",
+                locked: !!locked,
                 settings: { ...EMPTY_SETTINGS, ...(settings || {}) },
                 sections: Array.isArray(sections) ? sections : freshSections(),
             };
@@ -223,6 +224,7 @@
                 id: t.id,
                 title: t.title,
                 note: t.note,
+                locked: false,
                 settings: t.settings,
                 sections: (t.sections || []).map(s => ({ ...s, items: [] })),
             }));
@@ -337,30 +339,33 @@
             </div>
         );
 
-        const PayMethodButton = ({ method, onToggle }) => {
+        const PayMethodButton = ({ method, onToggle, disabled }) => {
             const m = PAY_METHODS[method] || PAY_METHODS.card;
             return (
-                <button onClick={onToggle} title={`付款方式：${m.label}（點擊切換）`} aria-label={`付款方式：${m.label}，點擊切換`} className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-xl bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors">
+                <button onClick={onToggle} disabled={disabled} title={disabled ? `付款方式：${m.label}` : `付款方式：${m.label}（點擊切換）`} aria-label={`付款方式：${m.label}`} className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-xl bg-gray-50 hover:bg-gray-100 disabled:hover:bg-gray-50 disabled:cursor-default text-sm font-medium text-gray-600 transition-colors">
                     <span className="text-base">{m.icon}</span>{m.label}
                 </button>
             );
         };
 
-        const SettingsCard = ({ settings, onChange }) => (
+        const SettingsCard = ({ settings, onChange, locked }) => (
             <div className="p-6 rounded-[2rem] bg-white/70 border-2 border-white shadow-xl shadow-gray-200/50">
-                <h2 className="text-xl font-bold text-gray-700 mb-4 flex items-center gap-2">⚙️ 記帳設定</h2>
+                <h2 className="text-xl font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    ⚙️ 記帳設定
+                    {locked && <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700">🔒 已鎖定</span>}
+                </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <label className="block">
                         <span className="text-sm font-medium text-gray-500">當地幣別</span>
-                        <input type="text" value={settings.currency} onChange={(e) => onChange({ currency: e.target.value.toUpperCase() })} placeholder="例如 AUD" className="mt-1 w-full px-4 py-2 rounded-2xl bg-white border-2 border-pink-100 focus:border-pink-300 outline-none font-bold text-gray-700" />
+                        <input type="text" disabled={locked} value={settings.currency} onChange={(e) => onChange({ currency: e.target.value.toUpperCase() })} placeholder="例如 AUD" className="mt-1 w-full px-4 py-2 rounded-2xl bg-white border-2 border-pink-100 focus:border-pink-300 disabled:bg-gray-50 disabled:text-gray-500 disabled:border-gray-100 outline-none font-bold text-gray-700" />
                     </label>
                     <label className="block">
                         <span className="text-sm font-medium text-gray-500">匯率（1 {settings.currency || "外幣"} = ? 新臺幣）</span>
-                        <input type="text" inputMode="decimal" value={settings.rate} onChange={(e) => onChange({ rate: cleanAmountInput(e.target.value) })} placeholder="例如 21" className="mt-1 w-full px-4 py-2 rounded-2xl bg-white border-2 border-pink-100 focus:border-pink-300 outline-none font-bold text-gray-700 tabular" />
+                        <input type="text" inputMode="decimal" disabled={locked} value={settings.rate} onChange={(e) => onChange({ rate: cleanAmountInput(e.target.value) })} placeholder="例如 21" className="mt-1 w-full px-4 py-2 rounded-2xl bg-white border-2 border-pink-100 focus:border-pink-300 disabled:bg-gray-50 disabled:text-gray-500 disabled:border-gray-100 outline-none font-bold text-gray-700 tabular" />
                     </label>
                     <label className="block">
                         <span className="text-sm font-medium text-gray-500">總預算（新臺幣）</span>
-                        <input type="text" inputMode="decimal" value={settings.budget} onChange={(e) => onChange({ budget: cleanAmountInput(e.target.value) })} placeholder="例如 50000" className="mt-1 w-full px-4 py-2 rounded-2xl bg-white border-2 border-pink-100 focus:border-pink-300 outline-none font-bold text-gray-700 tabular" />
+                        <input type="text" inputMode="decimal" disabled={locked} value={settings.budget} onChange={(e) => onChange({ budget: cleanAmountInput(e.target.value) })} placeholder="例如 50000" className="mt-1 w-full px-4 py-2 rounded-2xl bg-white border-2 border-pink-100 focus:border-pink-300 disabled:bg-gray-50 disabled:text-gray-500 disabled:border-gray-100 outline-none font-bold text-gray-700 tabular" />
                     </label>
                 </div>
                 <p className="mt-3 text-xs text-gray-400">匯率預設值只是示範，請改成你換匯或刷卡時的實際匯率。</p>
@@ -393,6 +398,17 @@
                 .map(s => ({ s, total: sectionTotalTwd(s, rate) }))
                 .filter(x => x.total > 0)
                 .sort((a, b) => b.total - a.total);
+
+            // 計算圓餅圖（conic-gradient）色段
+            let accPercent = 0;
+            const pieStops = breakdown.map(({ s, total }) => {
+                const theme = THEMES[s.theme % THEMES.length] || THEMES[0];
+                const share = expenseTwd > 0 ? (total / expenseTwd) * 100 : 0;
+                const start = accPercent;
+                accPercent += share;
+                return `${theme.hex} ${start.toFixed(2)}% ${accPercent.toFixed(2)}%`;
+            });
+            const pieBackground = pieStops.length > 0 ? `conic-gradient(${pieStops.join(", ")})` : "#f3f4f6";
 
             const exp = dualMoney(expenseTwd, settings);
             const sub = dualMoney(subsidyTwd, settings, subsidyTwd > 0 ? "−" : "");
@@ -457,22 +473,37 @@
                     </div>
 
                     {breakdown.length > 0 ? (
-                        <div className="space-y-2">
-                            <div className="text-sm font-medium text-gray-500">支出分類占比</div>
-                            {breakdown.map(({ s, total }) => {
-                                const theme = THEMES[s.theme % THEMES.length] || THEMES[0];
-                                const share = expenseTwd > 0 ? (total / expenseTwd) * 100 : 0;
-                                const m = dualMoney(total, settings);
-                                return (
-                                    <div key={s.id} className="flex items-center gap-2 text-sm">
-                                        <span className="w-28 sm:w-36 flex-shrink-0 truncate font-medium text-gray-600">{s.icon} {s.title || "未命名"}</span>
-                                        <div className="flex-grow h-3 rounded-full bg-white/80 overflow-hidden">
-                                            <div className={`h-full rounded-full ${theme.btnColor}`} style={{ width: `${share}%` }} />
-                                        </div>
-                                        <span className="w-32 sm:w-40 flex-shrink-0 text-right tabular text-gray-600">{m.main}（{formatMoney(share, 0)}%）</span>
+                        <div className="p-4 rounded-2xl bg-white/70 space-y-3">
+                            <div className="text-sm font-bold text-gray-600">🥧 支出分類占比（圓餅圖 ＋ 長條圖）</div>
+                            <div className="flex flex-col md:flex-row items-center gap-6">
+                                {/* 圓餅圖（甜甜圈樣式） */}
+                                <div className="relative w-44 h-44 flex-shrink-0 rounded-full shadow-inner" style={{ background: pieBackground }}>
+                                    <div className="absolute inset-6 rounded-full bg-white/95 flex flex-col items-center justify-center text-center px-2 shadow-sm">
+                                        <span className="text-[11px] font-medium text-gray-400">總支出</span>
+                                        <span className="text-sm font-extrabold text-gray-700 tabular leading-tight">{exp.main}</span>
+                                        {rate > 0 && <span className="text-[10px] text-gray-400 tabular">{exp.sub}</span>}
                                     </div>
-                                );
-                            })}
+                                </div>
+
+                                {/* 長條圖與明細 */}
+                                <div className="flex-grow w-full space-y-2.5">
+                                    {breakdown.map(({ s, total }) => {
+                                        const theme = THEMES[s.theme % THEMES.length] || THEMES[0];
+                                        const share = expenseTwd > 0 ? (total / expenseTwd) * 100 : 0;
+                                        const m = dualMoney(total, settings);
+                                        return (
+                                            <div key={s.id} className="flex items-center gap-2 text-sm">
+                                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: theme.hex }} />
+                                                <span className="w-24 sm:w-32 flex-shrink-0 truncate font-medium text-gray-600">{s.icon} {s.title || "未命名"}</span>
+                                                <div className="flex-grow h-3 rounded-full bg-gray-100 overflow-hidden">
+                                                    <div className={`h-full rounded-full ${theme.btnColor}`} style={{ width: `${share}%` }} />
+                                                </div>
+                                                <span className="w-28 sm:w-36 flex-shrink-0 text-right tabular text-gray-600 text-xs sm:text-sm">{m.main}（{formatMoney(share, 0)}%）</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className="text-center text-gray-400 font-medium py-2">還沒有任何支出，從下方分類開始記第一筆吧 ✍️</div>
@@ -481,13 +512,13 @@
             );
         };
 
-        const CurrencyButton = ({ value, currency, onToggle }) => (
-            <button onClick={onToggle} title="點擊切換幣別（外幣／新臺幣）" aria-label="切換幣別" className="flex-shrink-0 px-2 py-1 rounded-xl bg-gray-50 hover:bg-gray-100 text-sm font-bold text-gray-500 transition-colors">
-                {value === "TWD" ? "NT$" : (currency || "外幣")} ⇄
+        const CurrencyButton = ({ value, currency, onToggle, disabled }) => (
+            <button onClick={onToggle} disabled={disabled} title={disabled ? "幣別" : "點擊切換幣別（外幣／新臺幣）"} aria-label="切換幣別" className="flex-shrink-0 px-2 py-1 rounded-xl bg-gray-50 hover:bg-gray-100 disabled:hover:bg-gray-50 disabled:cursor-default text-sm font-bold text-gray-500 transition-colors">
+                {value === "TWD" ? "NT$" : (currency || "外幣")}{!disabled && " ⇄"}
             </button>
         );
 
-        const ExpenseSection = ({ section, settings, onChange, onMoveUp, onMoveDown, onDelete, isFirst, isLast, autoFocusTitle }) => {
+        const ExpenseSection = ({ section, settings, locked, onChange, onMoveUp, onMoveDown, onDelete, isFirst, isLast, autoFocusTitle }) => {
             const [newDesc, setNewDesc] = useState("");
             const [newAmount, setNewAmount] = useState("");
             const [newMethod, setNewMethod] = useState("card");
@@ -505,24 +536,37 @@
 
             useEffect(() => {
                 const el = titleRef.current && titleRef.current.querySelector('textarea');
-                if (autoFocusTitle && el) {
+                if (autoFocusTitle && el && !locked) {
                     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     el.focus();
                     el.select();
                 }
-            }, [autoFocusTitle]);
+            }, [autoFocusTitle, locked]);
 
             const handleAddItem = () => {
+                if (locked) return;
                 if (newDesc.trim() === "" && newAmount.trim() === "") return;
                 setItems([...items, { id: Date.now(), date: newDate, text: newDesc, amount: newAmount, method: newMethod, currency: newCurrency }]);
                 setNewDesc("");
                 setNewAmount("");
             };
 
-            const updateItem = (id, patch) => setItems(items.map(item => item.id === id ? { ...item, ...patch } : item));
-            const handleDeleteItem = (id) => setItems(items.filter(item => item.id !== id));
-            const handleMoveItem = (index, direction) => setItems(moveInArray(items, index, direction));
-            const sortByDate = () => setItems([...items].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999")));
+            const updateItem = (id, patch) => {
+                if (locked) return;
+                setItems(items.map(item => item.id === id ? { ...item, ...patch } : item));
+            };
+            const handleDeleteItem = (id) => {
+                if (locked) return;
+                setItems(items.filter(item => item.id !== id));
+            };
+            const handleMoveItem = (index, direction) => {
+                if (locked) return;
+                setItems(moveInArray(items, index, direction));
+            };
+            const sortByDate = () => {
+                if (locked) return;
+                setItems([...items].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999")));
+            };
             const toggleCurrency = (v) => v === "TWD" ? "foreign" : "TWD";
 
             const onEnterAdd = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddItem(); } };
@@ -533,33 +577,38 @@
                     <div ref={titleRef} className="flex items-start gap-1 mb-1">
                         <input
                             type="text"
+                            disabled={locked}
                             value={section.icon}
                             onChange={(e) => onChange({ icon: e.target.value })}
                             aria-label="分類圖示"
-                            title="點擊更換圖示（可輸入 emoji）"
-                            className="w-12 flex-shrink-0 text-3xl text-center bg-transparent rounded-xl outline-none hover:bg-white/50 focus:bg-white/70 transition-all"
+                            title={locked ? "" : "點擊更換圖示（可輸入 emoji）"}
+                            className="w-12 flex-shrink-0 text-3xl text-center bg-transparent rounded-xl outline-none hover:bg-white/50 focus:bg-white/70 disabled:hover:bg-transparent transition-all"
                         />
                         <AutoTextarea
+                            disabled={locked}
                             value={section.title}
                             onChange={(e) => onChange({ title: e.target.value })}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
                             rows={1}
                             placeholder="輸入分類名稱"
                             aria-label="分類名稱"
-                            className="flex-grow min-w-0 text-2xl font-bold text-gray-700 bg-transparent rounded-xl px-2 py-1 outline-none hover:bg-white/50 focus:bg-white/70 transition-all editable-textarea placeholder-gray-400"
+                            className="flex-grow min-w-0 text-2xl font-bold text-gray-700 bg-transparent rounded-xl px-2 py-1 outline-none hover:bg-white/50 focus:bg-white/70 disabled:hover:bg-transparent transition-all editable-textarea placeholder-gray-400"
                         />
-                        <div className="flex items-center flex-shrink-0">
-                            <button onClick={() => onChange({ theme: (section.theme + 1) % THEMES.length })} aria-label="切換分類顏色" title="切換顏色" className="p-1.5 rounded-lg text-lg hover:bg-white/70 transition-colors">🎨</button>
-                            <MoveButtons onUp={onMoveUp} onDown={onMoveDown} disableUp={isFirst} disableDown={isLast} label="分類" />
-                            <button onClick={onDelete} aria-label="刪除整個分類" title="刪除整個分類" className="p-1.5 rounded-lg text-gray-300 hover:text-red-400 hover:bg-white/70 transition-colors"><Trash2 size={20} /></button>
-                        </div>
+                        {!locked && (
+                            <div className="flex items-center flex-shrink-0">
+                                <button onClick={() => onChange({ theme: (section.theme + 1) % THEMES.length })} aria-label="切換分類顏色" title="切換顏色" className="p-1.5 rounded-lg text-lg hover:bg-white/70 transition-colors">🎨</button>
+                                <MoveButtons onUp={onMoveUp} onDown={onMoveDown} disableUp={isFirst} disableDown={isLast} label="分類" />
+                                <button onClick={onDelete} aria-label="刪除整個分類" title="刪除整個分類" className="p-1.5 rounded-lg text-gray-300 hover:text-red-400 hover:bg-white/70 transition-colors"><Trash2 size={20} /></button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="ml-0 sm:ml-14 mb-5 flex flex-wrap items-center gap-2">
                         <button
+                            disabled={locked}
                             onClick={() => onChange({ kind: subsidy ? "expense" : "subsidy" })}
-                            title="點擊切換：支出（累加）／補助（從總支出扣除）"
-                            className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${subsidy ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-white/80 text-gray-500 hover:bg-white"}`}
+                            title={locked ? "" : "點擊切換：支出（累加）／補助（從總支出扣除）"}
+                            className={`px-3 py-1 rounded-full text-xs font-bold transition-colors disabled:cursor-default ${subsidy ? "bg-emerald-500 text-white hover:bg-emerald-600 disabled:hover:bg-emerald-500" : "bg-white/80 text-gray-500 hover:bg-white disabled:hover:bg-white/80"}`}
                         >
                             {subsidy ? "➖ 補助（扣除）" : "➕ 支出"}
                         </button>
@@ -567,62 +616,67 @@
                             {subsidy ? "補助合計" : "小計"} {subtotal.main}
                             {rate > 0 && <span className="text-gray-400"> {subtotal.sub}</span>}
                         </span>
-                        {items.length > 1 && (
+                        {!locked && items.length > 1 && (
                             <button onClick={sortByDate} title="依日期由早到晚排列" className="ml-auto px-3 py-1 rounded-full text-xs font-bold bg-white/80 text-gray-500 hover:bg-white transition-colors">
                                 📅 依日期排序
                             </button>
                         )}
                     </div>
 
-                    <div className="space-y-3 mb-5">
+                    <div className={`space-y-3 ${locked ? "mb-1" : "mb-5"}`}>
                         {items.length === 0 && (
                             <div className="text-center text-gray-400 font-medium py-5 rounded-2xl bg-white/40">
-                                {subsidy ? "還沒有補助，在下方記下來源與金額，會從總支出扣除 🎁" : "還沒有花費，在下方記下第一筆吧 ✍️"}
+                                {locked ? "此分類沒有紀錄" : (subsidy ? "還沒有補助，在下方記下來源與金額，會從總支出扣除 🎁" : "還沒有花費，在下方記下第一筆吧 ✍️")}
                             </div>
                         )}
                         {items.map((item, index) => (
                             <div key={item.id} className="group p-3 rounded-2xl bg-white hover:bg-white/90 shadow-sm space-y-2">
                                 <AutoTextarea
+                                    disabled={locked}
                                     value={item.text}
                                     onChange={(e) => updateItem(item.id, { text: e.target.value })}
                                     rows={1}
                                     placeholder={subsidy ? "補助來源" : "品項說明"}
                                     aria-label={subsidy ? "補助來源" : "品項說明"}
-                                    className="w-full bg-transparent rounded-lg px-1 outline-none font-medium text-gray-700 focus:bg-gray-50 transition-all editable-textarea placeholder-gray-300"
+                                    className="w-full bg-transparent rounded-lg px-1 outline-none font-medium text-gray-700 focus:bg-gray-50 disabled:text-gray-700 transition-all editable-textarea placeholder-gray-300"
                                     style={{ minHeight: '1.75rem' }}
                                 />
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <input type="date" value={item.date || ""} onChange={(e) => updateItem(item.id, { date: e.target.value })} aria-label="日期" className="flex-shrink-0 px-2 py-1 rounded-xl bg-gray-50 text-sm text-gray-600 outline-none focus:bg-gray-100" />
-                                    {!subsidy && <PayMethodButton method={item.method} onToggle={() => updateItem(item.id, { method: item.method === "cash" ? "card" : "cash" })} />}
+                                    <input type="date" disabled={locked} value={item.date || ""} onChange={(e) => updateItem(item.id, { date: e.target.value })} aria-label="日期" className="flex-shrink-0 px-2 py-1 rounded-xl bg-gray-50 text-sm text-gray-600 outline-none focus:bg-gray-100 disabled:opacity-90" />
+                                    {!subsidy && <PayMethodButton disabled={locked} method={item.method} onToggle={() => updateItem(item.id, { method: item.method === "cash" ? "card" : "cash" })} />}
                                     <div className="flex items-center gap-1 ml-auto">
                                         {subsidy && <span className="font-bold text-emerald-600">−</span>}
-                                        <CurrencyButton value={item.currency} currency={currency} onToggle={() => updateItem(item.id, { currency: toggleCurrency(item.currency) })} />
-                                        <input type="text" inputMode="decimal" value={item.amount} onChange={(e) => updateItem(item.id, { amount: cleanAmountInput(e.target.value) })} placeholder="0" aria-label="金額" className={`w-24 px-2 py-1 rounded-xl bg-gray-50 text-right font-bold outline-none focus:bg-gray-100 tabular ${amountColor}`} />
+                                        <CurrencyButton disabled={locked} value={item.currency} currency={currency} onToggle={() => updateItem(item.id, { currency: toggleCurrency(item.currency) })} />
+                                        <input type="text" inputMode="decimal" disabled={locked} value={item.amount} onChange={(e) => updateItem(item.id, { amount: cleanAmountInput(e.target.value) })} placeholder="0" aria-label="金額" className={`w-24 px-2 py-1 rounded-xl bg-gray-50 text-right font-bold outline-none focus:bg-gray-100 tabular ${amountColor}`} />
                                     </div>
-                                    <div className="flex items-center flex-shrink-0 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
-                                        <MoveButtons onUp={() => handleMoveItem(index, -1)} onDown={() => handleMoveItem(index, 1)} disableUp={index === 0} disableDown={index === items.length - 1} label="項目" />
-                                        <button onClick={() => handleDeleteItem(item.id)} aria-label="刪除這一筆" title="刪除" className="text-gray-300 hover:text-red-400 transition-colors p-1.5"><Trash2 size={18} /></button>
-                                    </div>
+                                    {!locked && (
+                                        <div className="flex items-center flex-shrink-0 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
+                                            <MoveButtons onUp={() => handleMoveItem(index, -1)} onDown={() => handleMoveItem(index, 1)} disableUp={index === 0} disableDown={index === items.length - 1} label="項目" />
+                                            <button onClick={() => handleDeleteItem(item.id)} aria-label="刪除這一筆" title="刪除" className="text-gray-300 hover:text-red-400 transition-colors p-1.5"><Trash2 size={18} /></button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
                     </div>
 
-                    <div className={`p-3 rounded-2xl bg-white/60 border-2 border-dashed ${subsidy ? "border-emerald-300" : "border-gray-300"} space-y-2`}>
-                        <input type="text" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} onKeyDown={onEnterAdd} placeholder={subsidy ? "補助來源：例如 公司差旅補助、爸媽贊助 🎁" : "記一筆：買了什麼？ ✍️"} className="w-full px-2 py-1 bg-transparent outline-none font-medium text-gray-600 placeholder-gray-400" />
-                        <div className="flex flex-wrap items-center gap-2">
-                            <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} aria-label="新增項目的日期" className="flex-shrink-0 px-2 py-1.5 rounded-xl bg-white text-sm text-gray-600 outline-none border-2 border-transparent focus:border-gray-200" />
-                            {!subsidy && <PayMethodButton method={newMethod} onToggle={() => setNewMethod(newMethod === "cash" ? "card" : "cash")} />}
-                            <div className="flex items-center gap-1 flex-grow justify-end">
-                                {subsidy && <span className="font-bold text-emerald-600">−</span>}
-                                <CurrencyButton value={newCurrency} currency={currency} onToggle={() => setNewCurrency(toggleCurrency(newCurrency))} />
-                                <input type="text" inputMode="decimal" value={newAmount} onChange={(e) => setNewAmount(cleanAmountInput(e.target.value))} onKeyDown={onEnterAdd} placeholder="金額" className={`w-28 px-3 py-2 rounded-xl bg-white text-right font-bold outline-none border-2 border-transparent focus:border-gray-200 tabular ${amountColor}`} />
+                    {!locked && (
+                        <div className={`p-3 rounded-2xl bg-white/60 border-2 border-dashed ${subsidy ? "border-emerald-300" : "border-gray-300"} space-y-2`}>
+                            <input type="text" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} onKeyDown={onEnterAdd} placeholder={subsidy ? "補助來源：例如 公司差旅補助、爸媽贊助 🎁" : "記一筆：買了什麼？ ✍️"} className="w-full px-2 py-1 bg-transparent outline-none font-medium text-gray-600 placeholder-gray-400" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} aria-label="新增項目的日期" className="flex-shrink-0 px-2 py-1.5 rounded-xl bg-white text-sm text-gray-600 outline-none border-2 border-transparent focus:border-gray-200" />
+                                {!subsidy && <PayMethodButton method={newMethod} onToggle={() => setNewMethod(newMethod === "cash" ? "card" : "cash")} />}
+                                <div className="flex items-center gap-1 flex-grow justify-end">
+                                    {subsidy && <span className="font-bold text-emerald-600">−</span>}
+                                    <CurrencyButton value={newCurrency} currency={currency} onToggle={() => setNewCurrency(toggleCurrency(newCurrency))} />
+                                    <input type="text" inputMode="decimal" value={newAmount} onChange={(e) => setNewAmount(cleanAmountInput(e.target.value))} onKeyDown={onEnterAdd} placeholder="金額" className={`w-28 px-3 py-2 rounded-xl bg-white text-right font-bold outline-none border-2 border-transparent focus:border-gray-200 tabular ${amountColor}`} />
+                                </div>
+                                <button onClick={handleAddItem} aria-label="新增這一筆" className={`px-4 py-2 ${subsidy ? "bg-emerald-500" : theme.btnColor} text-white rounded-xl hover:scale-105 hover:shadow-lg transition-transform flex items-center justify-center flex-shrink-0`}>
+                                    <Plus size={22} />
+                                </button>
                             </div>
-                            <button onClick={handleAddItem} aria-label="新增這一筆" className={`px-4 py-2 ${subsidy ? "bg-emerald-500" : theme.btnColor} text-white rounded-xl hover:scale-105 hover:shadow-lg transition-transform flex items-center justify-center flex-shrink-0`}>
-                                <Plus size={22} />
-                            </button>
                         </div>
-                    </div>
+                    )}
                 </div>
             );
         };
@@ -631,22 +685,26 @@
             const [newSectionId, setNewSectionId] = useState(null);
             const titleRef = useRef(null);
 
+            const locked = !!trip.locked;
             const settings = { ...EMPTY_SETTINGS, ...(trip.settings || {}) };
             const sections = Array.isArray(trip.sections) ? trip.sections : [];
 
             useEffect(() => {
-                if (autoFocusTitle && titleRef.current) {
+                if (autoFocusTitle && titleRef.current && !locked) {
                     titleRef.current.focus();
                     titleRef.current.select();
                 }
-            }, [autoFocusTitle]);
+            }, [autoFocusTitle, locked]);
 
             const setSections = (next) => onChange({ sections: next });
             const updateSettings = (patch) => onChange({ settings: { ...settings, ...patch } });
             const updateSection = (id, patch) => setSections(sections.map(s => s.id === id ? { ...s, ...patch } : s));
             const moveSection = (index, direction) => setSections(moveInArray(sections, index, direction));
 
+            const toggleLock = () => onChange({ locked: !locked });
+
             const deleteSection = (section) => {
+                if (locked) return;
                 const name = section.title.trim() || "這個分類";
                 const count = (section.items || []).length;
                 const extra = count > 0 ? `以及裡面的 ${count} 筆花費` : "";
@@ -656,6 +714,7 @@
             };
 
             const addSection = (kind = "expense") => {
+                if (locked) return;
                 const id = newId("section");
                 const section = kind === "subsidy"
                     ? { id, title: "補助", icon: "🎁", theme: 4, kind: "subsidy", items: [] }
@@ -667,24 +726,38 @@
             return (
                 <div className="space-y-8">
                     <div className="text-center space-y-3">
-                        <input ref={titleRef} type="text" value={trip.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="輸入旅程名稱" aria-label="旅程名稱" className="w-full text-center text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-rose-400 to-violet-500 bg-transparent border-none outline-none hover:bg-white/40 focus:bg-white/60 rounded-2xl p-2 transition-all placeholder-pink-200" />
+                        <input ref={titleRef} type="text" disabled={locked} value={trip.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="輸入旅程名稱" aria-label="旅程名稱" className="w-full text-center text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-rose-400 to-violet-500 bg-transparent border-none outline-none hover:bg-white/40 focus:bg-white/60 disabled:hover:bg-transparent rounded-2xl p-2 transition-all placeholder-pink-200" />
                         <AutoTextarea
+                            disabled={locked}
                             value={trip.note || ""}
                             onChange={(e) => onChange({ note: e.target.value })}
                             rows={1}
-                            placeholder="📝 點這裡輸入補充說明，例如：旅行日期 2027/8/28 ~ 9/3、同行成員、住宿地點…"
+                            placeholder={locked ? "" : "📝 點這裡輸入補充說明，例如：旅行日期 2027/8/28 ~ 9/3、同行成員、住宿地點…"}
                             aria-label="旅程補充說明"
-                            className="w-full max-w-2xl mx-auto block text-center text-lg font-medium text-gray-600 bg-white/40 hover:bg-white/60 focus:bg-white/80 rounded-2xl px-4 py-2 outline-none transition-all editable-textarea placeholder-gray-400"
+                            className="w-full max-w-2xl mx-auto block text-center text-lg font-medium text-gray-600 bg-white/40 hover:bg-white/60 focus:bg-white/80 disabled:hover:bg-white/40 rounded-2xl px-4 py-2 outline-none transition-all editable-textarea placeholder-gray-400"
                         />
+
+                        {/* 鎖定／解鎖切換按鈕 */}
+                        <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                            <button
+                                onClick={toggleLock}
+                                className={`px-4 py-2 rounded-full text-sm font-bold shadow-sm transition-all flex items-center gap-1.5 ${locked ? "bg-amber-400 text-white hover:bg-amber-500 shadow-amber-200" : "bg-white/80 text-gray-600 hover:bg-white border border-pink-100"}`}
+                            >
+                                {locked ? "🔒 已鎖定（點擊解鎖以編輯）" : "🔓 鎖定此旅程（防止誤觸修改）"}
+                            </button>
+                        </div>
+
                         <p className="text-sm text-gray-400 font-medium flex items-center justify-center gap-2">
                             <Wallet size={16} className="text-pink-300" />
-                            {personName} 的記帳 · 每一筆都能直接修改，會自動同步至雲端
+                            {locked
+                                ? `${personName} 的記帳 · 目前為唯讀保護模式，安心滑動不誤觸`
+                                : `${personName} 的記帳 · 每一筆都能直接修改，會自動同步至雲端`}
                             <Wallet size={16} className="text-pink-300" />
                         </p>
                     </div>
 
                     <SummaryCard sections={sections} settings={settings} />
-                    <SettingsCard settings={settings} onChange={updateSettings} />
+                    <SettingsCard settings={settings} onChange={updateSettings} locked={locked} />
 
                     <div className="flex flex-col gap-8">
                         {sections.map((section, index) => (
@@ -692,6 +765,7 @@
                                 key={section.id}
                                 section={section}
                                 settings={settings}
+                                locked={locked}
                                 onChange={(patch) => updateSection(section.id, patch)}
                                 onMoveUp={() => moveSection(index, -1)}
                                 onMoveDown={() => moveSection(index, 1)}
@@ -702,22 +776,31 @@
                             />
                         ))}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <button onClick={() => addSection("expense")} className="w-full py-6 rounded-[2rem] border-2 border-dashed border-gray-300 text-gray-500 font-bold text-lg hover:border-pink-300 hover:text-pink-500 hover:bg-white/50 transition-all flex items-center justify-center gap-2">
-                                <Plus size={22} /> 新增支出分類
-                            </button>
-                            <button onClick={() => addSection("subsidy")} className="w-full py-6 rounded-[2rem] border-2 border-dashed border-emerald-300 text-emerald-600 font-bold text-lg hover:border-emerald-400 hover:bg-emerald-50/60 transition-all flex items-center justify-center gap-2">
-                                <Plus size={22} /> 新增補助（扣除）
-                            </button>
-                        </div>
+                        {!locked && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <button onClick={() => addSection("expense")} className="w-full py-6 rounded-[2rem] border-2 border-dashed border-gray-300 text-gray-500 font-bold text-lg hover:border-pink-300 hover:text-pink-500 hover:bg-white/50 transition-all flex items-center justify-center gap-2">
+                                    <Plus size={22} /> 新增支出分類
+                                </button>
+                                <button onClick={() => addSection("subsidy")} className="w-full py-6 rounded-[2rem] border-2 border-dashed border-emerald-300 text-emerald-600 font-bold text-lg hover:border-emerald-400 hover:bg-emerald-50/60 transition-all flex items-center justify-center gap-2">
+                                    <Plus size={22} /> 新增補助（扣除）
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="p-4 rounded-[2rem] bg-white/50 border-2 border-white flex flex-wrap items-center justify-center gap-2 text-sm font-medium">
                         <span className="text-gray-400 mr-1">這趟旅程：</span>
+                        <button onClick={toggleLock} className={`px-3 py-2 rounded-xl font-bold transition-colors ${locked ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-white text-gray-600 hover:bg-amber-50"}`}>
+                            {locked ? "🔒 解除鎖定" : "🔓 鎖定頁面"}
+                        </button>
                         <button onClick={onMoveLeft} disabled={isFirst} className="px-3 py-2 rounded-xl bg-white text-gray-600 hover:bg-pink-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">◀ 分頁往左</button>
                         <button onClick={onMoveRight} disabled={isLast} className="px-3 py-2 rounded-xl bg-white text-gray-600 hover:bg-pink-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">分頁往右 ▶</button>
-                        <button onClick={onClear} className="px-3 py-2 rounded-xl bg-white text-gray-600 hover:bg-amber-50 hover:text-amber-600 transition-colors">🧹 清空所有花費</button>
-                        <button onClick={onDelete} className="px-3 py-2 rounded-xl bg-white text-gray-600 hover:bg-red-50 hover:text-red-500 transition-colors">🗑️ 刪除這趟旅程</button>
+                        {!locked && (
+                            <>
+                                <button onClick={onClear} className="px-3 py-2 rounded-xl bg-white text-gray-600 hover:bg-amber-50 hover:text-amber-600 transition-colors">🧹 清空所有花費</button>
+                                <button onClick={onDelete} className="px-3 py-2 rounded-xl bg-white text-gray-600 hover:bg-red-50 hover:text-red-500 transition-colors">🗑️ 刪除這趟旅程</button>
+                            </>
+                        )}
                     </div>
                 </div>
             );
@@ -729,8 +812,9 @@
                     const active = t.id === activeTripId;
                     const label = (t.title || "").replace(/[✨]/g, "").trim() || "未命名旅程";
                     return (
-                        <button key={t.id} onClick={() => onSelect(t.id)} title={label} className={`flex-shrink-0 max-w-[16rem] truncate px-4 py-2.5 rounded-2xl font-bold text-sm transition-all ${active ? "bg-white text-pink-500 shadow-lg shadow-pink-100 border-2 border-pink-200" : "bg-white/50 text-gray-500 border-2 border-transparent hover:bg-white/80"}`}>
-                            {label}
+                        <button key={t.id} onClick={() => onSelect(t.id)} title={label} className={`flex-shrink-0 max-w-[16rem] truncate px-4 py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center gap-1 ${active ? "bg-white text-pink-500 shadow-lg shadow-pink-100 border-2 border-pink-200" : "bg-white/50 text-gray-500 border-2 border-transparent hover:bg-white/80"}`}>
+                            {t.locked && <span title="已鎖定">🔒</span>}
+                            <span className="truncate">{label}</span>
                         </button>
                     );
                 })}
